@@ -2,9 +2,9 @@ pragma solidity >=0.4.21 <0.7.0;
 
 contract Offer {
     // Config:
-    uint256 public constant MIN_PRICE = 0; // price >= MIN_PRICE
+    uint256 public constant MIN_PRICE = 0 ether; // price >= MIN_PRICE
     uint public constant SELLER_DEPOSIT_MULTIPLIER = 2;
-    uint public constant BUYER_DEPOSIT_MULTIPLIER = 2;
+    uint public constant BUYER_DEPOSIT_MULTIPLIER = 1;
 
     enum State {
         WAITING_BUYER,
@@ -21,7 +21,6 @@ contract Offer {
     string public attachedFiles;
     bytes public contactInfo;
     mapping(address => uint256) public pendingWithdrawals;
-
 
     event Created(address indexed seller, string title, uint256 price);
     event TitleUpdated(string oldTitle, string newTitle);
@@ -61,6 +60,7 @@ contract Offer {
     }
 
     function setPrice(uint256 newPrice) public payable {
+        require(currentStatus == State.WAITING_BUYER, "Can't change price in current status");
         uint256 oldPrice = price;
         require(msg.sender == seller, "Only seller can change price");
         require(newPrice != oldPrice, "Price already set to that value");
@@ -104,7 +104,7 @@ contract Offer {
     function rejectBuyer() public {
         require(currentStatus == State.PENDING_CONFIRMATION, "Can't reject buyer in current status");
         require(msg.sender == seller, "Only seller can reject buyer");
-        payTo(buyer, BUYER_DEPOSIT_MULTIPLIER * price);
+        payTo(buyer, (BUYER_DEPOSIT_MULTIPLIER + 1) * price);
         address oldBuyer = buyer;
         delete buyer;
         delete contactInfo;
@@ -117,7 +117,7 @@ contract Offer {
         require(msg.sender == buyer, "Only buyer can confirm");
         assert(BUYER_DEPOSIT_MULTIPLIER > 0);
         payTo(seller, (SELLER_DEPOSIT_MULTIPLIER + 1) * price);
-        payTo(buyer, (BUYER_DEPOSIT_MULTIPLIER - 1) * price);
+        payTo(buyer, BUYER_DEPOSIT_MULTIPLIER * price);
         currentStatus = State.COMPLETED;
         emit Completed();
     }
