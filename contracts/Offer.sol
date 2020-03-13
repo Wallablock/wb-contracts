@@ -32,8 +32,8 @@ contract Offer {
     event Cancelled();
 
     constructor(uint256 newPrice, string memory newTitle) public payable {
-        require(BUYER_DEPOSIT_MULTIPLIER > 0, "Invalid buyer deposit for contract");
-        require(SELLER_DEPOSIT_MULTIPLIER > 0, "Invalid seller deposit for contract");
+        assert(BUYER_DEPOSIT_MULTIPLIER > 0);
+        assert(SELLER_DEPOSIT_MULTIPLIER > 0);
         require(newPrice >= MIN_PRICE, "Price too small");
         uint256 deposit = SELLER_DEPOSIT_MULTIPLIER * newPrice;
         require(deposit >= newPrice, "Price too big");
@@ -63,7 +63,6 @@ contract Offer {
         require(currentStatus == State.WAITING_BUYER, "Can't change price in current status");
         uint256 oldPrice = price;
         require(msg.sender == seller, "Only seller can change price");
-        require(newPrice != oldPrice, "Price already set to that value");
         require(newPrice >= MIN_PRICE, "Price too small");
         uint256 newDeposit = 2 * newPrice;
         require(newDeposit >= newPrice, "Price too big");
@@ -74,6 +73,9 @@ contract Offer {
         } else if (newDeposit < oldDeposit) {
             require(msg.value == 0, "Invalid deposit");
             payTo(seller, oldDeposit - newDeposit);
+        } else {
+            assert(newPrice == oldPrice);
+            return; // Avoid emmiting event
         }
         price = newPrice;
         emit ChangedPrice(oldPrice, newPrice);
@@ -94,17 +96,26 @@ contract Offer {
     function buy(bytes memory newContactInfo) public payable {
         require(currentStatus == State.WAITING_BUYER, "Can't buy in current status");
         require(msg.sender != seller, "Seller can't self-buy");
-        require(msg.value == (BUYER_DEPOSIT_MULTIPLIER + 1) * price, "Invalid deposit");
+        require(msg.value == buyerDepositWithPayment(), "Invalid deposit");
         buyer = msg.sender;
         currentStatus = State.PENDING_CONFIRMATION;
         contactInfo = newContactInfo;
         emit Bought(buyer);
     }
 
+    function confirm() public {
+        require(currentStatus == State.PENDING_CONFIRMATION, "Can't confirm in current status");
+        require(msg.sender == buyer, "Only buyer can confirm");
+        payTo(seller, sellerDepositWithPayment());
+        payTo(buyer, buyerDeposit());
+        currentStatus = State.COMPLETED;
+        emit Completed();
+    }
+
     function rejectBuyer() public {
         require(currentStatus == State.PENDING_CONFIRMATION, "Can't reject buyer in current status");
         require(msg.sender == seller, "Only seller can reject buyer");
-        payTo(buyer, (BUYER_DEPOSIT_MULTIPLIER + 1) * price);
+        payTo(buyer, buyerDepositWithPayment());
         address oldBuyer = buyer;
         delete buyer;
         delete contactInfo;
@@ -112,25 +123,31 @@ contract Offer {
         emit BuyerRejected(oldBuyer);
     }
 
-    function confirm() public {
-        require(currentStatus == State.PENDING_CONFIRMATION, "Can't confirm in current status");
-        require(msg.sender == buyer, "Only buyer can confirm");
-        assert(BUYER_DEPOSIT_MULTIPLIER > 0);
-        payTo(seller, (SELLER_DEPOSIT_MULTIPLIER + 1) * price);
-        payTo(buyer, BUYER_DEPOSIT_MULTIPLIER * price);
-        currentStatus = State.COMPLETED;
-        emit Completed();
-    }
-
     function cancel() public {
         require(currentStatus == State.WAITING_BUYER || currentStatus == State.PENDING_CONFIRMATION, "Can't cancel in current status");
         require(msg.sender == seller, "Only seller can cancel");
-        payTo(seller, SELLER_DEPOSIT_MULTIPLIER * price);
+        payTo(seller, sellerDeposit());
         if (currentStatus == State.PENDING_CONFIRMATION) {
             rejectBuyer();
         }
         currentStatus = State.CANCELLED;
         emit Cancelled();
+    }
+
+    function buyerDeposit() public view returns (uint256) {
+        return price * BUYER_DEPOSIT_MULTIPLIER;
+    }
+
+    function sellerDeposit() public view returns (uint256) {
+        return price * SELLER_DEPOSIT_MULTIPLIER;
+    }
+
+    function buyerDepositWithPayment() public view returns (uint256) {
+        return price * (BUYER_DEPOSIT_MULTIPLIER + 1);
+    }
+
+    function sellerDepositWithPayment() public view returns (uint256) {
+        return price * (SELLER_DEPOSIT_MULTIPLIER + 1);
     }
 
     function payTo(address to, uint256 amount) private {
