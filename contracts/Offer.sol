@@ -48,6 +48,11 @@ contract Offer {
     ///         This limits the operations available for this offer.
     State public currentStatus;
 
+    uint64 public creationDate;
+    uint64 public purchaseDate;
+    uint64 public confirmationDate;
+
+
     /// @notice The seller of the contract.
     address payable public seller;
 
@@ -61,6 +66,15 @@ contract Offer {
 
     /// @notice A brief description of the offer. May not be empty.
     string public title;
+
+    /// @notice A string identifying the category of the offer. This string should match
+    ///         one of the application-defined known strings.
+    string public category;
+
+    /// @notice The code of the country the offer is shipping from, or "XXX" if
+    ///         this does not apply. The code is the ISO 3166-1 alpha-3 code
+    ///         (e.g. ESP, USA, CHN...).
+    bytes3 public shipsFrom;
 
     /**
      @notice An optional IPFS CID to a directory with files (usually photos) related
@@ -110,6 +124,12 @@ contract Offer {
     /// @notice The advertised price of the offer has been changed.
     event ChangedPrice(uint256 oldPrice, uint256 newPrice);
 
+    /// @notice The category of the offer has been changed.
+    event ChangedCategory(string oldCategory, string newCategory);
+
+    /// @notice This shipping country of the offer has been changed.
+    event ChangedShipsFrom(bytes3 oldShipsFrom, bytes3 newShipsFrom);
+
     /// @notice The offer has been completed successfully.
     event Completed();
 
@@ -122,12 +142,19 @@ contract Offer {
              The relevant deposit must be made at the same time or the creation will fail.
      @dev The ethers for the deposit must be sent with the call to the constructor.
           The value of the deposit is the proposed price times the seller multiplier.
-     @param newPrice The price of the offer. Must be bigger or equal than the minimum
+     @param newPrice The price of the offer. Must be bigger than or equal to the minimum
                      price `MIN_PRICE`.
                      Too big of a price may cause an overflow, which will result in a failure.
      @param newTitle The title of the offer. May not be empty.
+     @param newCategory The category of the offer. See: setCategory()
+     @param newShipsFrom The origin shipping country for the offer. See: setShipsFrom()
      */
-    constructor(uint256 newPrice, string memory newTitle) public payable {
+    constructor(
+        uint256 newPrice,
+        string memory newTitle,
+        string memory newCategory,
+        bytes3 newShipsFrom
+    ) public payable {
         assert(BUYER_DEPOSIT_MULTIPLIER > 0);
         assert(SELLER_DEPOSIT_MULTIPLIER > 0);
         require(newPrice >= MIN_PRICE, "Price too small");
@@ -138,6 +165,9 @@ contract Offer {
         seller = msg.sender;
         price = newPrice;
         title = newTitle;
+        category = newCategory;
+        shipsFrom = newShipsFrom;
+        creationDate = uint64(now);
         currentStatus = State.WAITING_BUYER;
         emit Created(seller, newTitle, newPrice);
     }
@@ -244,6 +274,42 @@ contract Offer {
     }
 
     /**
+     @notice Change the category of the offer to `newCategory`.
+             This is only available while the contract is awaiting a buyer.
+     @param newCategory New category to be set. Should be one of the categories
+                        defined by the application. Should not be empty.
+     @dev Offers with an empty or unrecognised category should be classified as "Others"
+          or "Uncategorised".
+     */
+    function setCategory(string memory newCategory) public {
+        require(msg.sender == seller, "Only seller can change category");
+        require(
+            currentStatus == State.WAITING_BUYER,
+            "Category can only be changed before a purchase"
+        );
+        string memory oldCategory = category;
+        category = newCategory;
+        emit ChangedCategory(oldCategory, newCategory);
+    }
+
+    /**
+     @notice Change the origin shipping country of the offer.
+     @param newShipsFrom ISO 3166-1 alpha-3 code of the shipping country.
+                         "XXX" is "Not applicable" (e.g. digital goods).
+                         Other XX codes may be used by the application.
+     */
+    function setShipsFrom(bytes3 newShipsFrom) public {
+        require(msg.sender == seller, "Only seller can change shipping country");
+        require(
+            currentStatus == State.WAITING_BUYER,
+            "Shipping country can only be changed before a purchase"
+        );
+        bytes3 oldShipsFrom = shipsFrom;
+        shipsFrom = newShipsFrom;
+        emit ChangedShipsFrom(oldShipsFrom, newShipsFrom);
+    }
+
+    /**
      @notice Buy this offer. When calling this function, the buyer must provide
              the currency to pay the deposit as well as the price of the offer.
      @dev You can use the provided views to establish the correct amount to be sent.
@@ -256,8 +322,9 @@ contract Offer {
         require(msg.sender != seller, "Seller can't self-buy");
         require(msg.value == buyerDepositWithPayment(), "Invalid deposit");
         buyer = msg.sender;
-        currentStatus = State.PENDING_CONFIRMATION;
         contactInfo = newContactInfo;
+        purchaseDate = uint64(now);
+        currentStatus = State.PENDING_CONFIRMATION;
         emit Bought(buyer);
     }
 
@@ -271,6 +338,7 @@ contract Offer {
         require(msg.sender == buyer, "Only buyer can confirm");
         payTo(seller, sellerDepositWithPayment());
         payTo(buyer, buyerDeposit());
+        confirmationDate = uint64(now);
         currentStatus = State.COMPLETED;
         emit Completed();
     }
@@ -289,6 +357,7 @@ contract Offer {
         address oldBuyer = buyer;
         delete buyer;
         delete contactInfo;
+        delete purchaseDate;
         currentStatus = State.WAITING_BUYER;
         emit BuyerRejected(oldBuyer);
     }
@@ -300,7 +369,10 @@ contract Offer {
              "pending confirmation" states.
      */
     function cancel() public {
-        require(currentStatus == State.WAITING_BUYER || currentStatus == State.PENDING_CONFIRMATION, "Can't cancel in current status");
+        require(
+            currentStatus == State.WAITING_BUYER || currentStatus == State.PENDING_CONFIRMATION,
+            "Can't cancel in current status"
+        );
         require(msg.sender == seller, "Only seller can cancel");
         payTo(seller, sellerDeposit());
         if (currentStatus == State.PENDING_CONFIRMATION) {
