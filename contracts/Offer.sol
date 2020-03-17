@@ -52,6 +52,10 @@ contract Offer {
     uint64 public purchaseDate;
     uint64 public confirmationDate;
 
+    /// @notice The code of the country the offer is shipping from, or "XXX" if
+    ///         this does not apply. The code is the ISO 3166-1 alpha-3 code
+    ///         (e.g. ESP...).
+    bytes3 public shipsFrom;
 
     /// @notice The seller of the contract.
     address payable public seller;
@@ -71,10 +75,6 @@ contract Offer {
     ///         one of the application-defined known strings.
     string public category;
 
-    /// @notice The code of the country the offer is shipping from, or "XXX" if
-    ///         this does not apply. The code is the ISO 3166-1 alpha-3 code
-    ///         (e.g. ESP, USA, CHN...).
-    bytes3 public shipsFrom;
 
     /**
      @notice An optional IPFS CID to a directory with files (usually photos) related
@@ -107,10 +107,16 @@ contract Offer {
 
 
     /// @notice An offer has been created.
-    event Created(address indexed seller, string title, uint256 price);
+    event Created(
+        address indexed seller,
+        string title,
+        uint256 price,
+        string category,
+        bytes3 shipsFrom
+    );
 
     /// @notice The title of the offer has been updated
-    event TitleUpdated(string oldTitle, string newTitle);
+    event TitleUpdated(string newTitle);
 
     /// @notice A buyer has purchased this offer.
     event Bought(address indexed buyer);
@@ -119,16 +125,18 @@ contract Offer {
     event BuyerRejected(address oldBuyer);
 
     /// @notice The files attached to the offer have been updated.
+    /// @dev Unlike other changes, the old CID is provided
+    ///      in case it is needed to e.g. unpin old CIDs.
     event ChangedIPFSFiles(string oldCID, string newCID);
 
     /// @notice The advertised price of the offer has been changed.
-    event ChangedPrice(uint256 oldPrice, uint256 newPrice);
+    event ChangedPrice(uint256 newPrice);
 
     /// @notice The category of the offer has been changed.
-    event ChangedCategory(string oldCategory, string newCategory);
+    event ChangedCategory(string newCategory);
 
     /// @notice This shipping country of the offer has been changed.
-    event ChangedShipsFrom(bytes3 oldShipsFrom, bytes3 newShipsFrom);
+    event ChangedShipsFrom(bytes3 newShipsFrom);
 
     /// @notice The offer has been completed successfully.
     event Completed();
@@ -169,7 +177,7 @@ contract Offer {
         shipsFrom = newShipsFrom;
         creationDate = uint64(now);
         currentStatus = State.WAITING_BUYER;
-        emit Created(seller, newTitle, newPrice);
+        emit Created(seller, newTitle, newPrice, newCategory, newShipsFrom);
     }
 
     /**
@@ -253,7 +261,7 @@ contract Offer {
             return; // Avoid emmiting event
         }
         price = newPrice;
-        emit ChangedPrice(oldPrice, newPrice);
+        emit ChangedPrice(newPrice);
     }
 
     /**
@@ -268,9 +276,8 @@ contract Offer {
             "Title can only be modified before a purchase"
         );
         require(bytes(newTitle).length > 0, "A title is required");
-        string memory oldTitle = title;
         title = newTitle;
-        emit TitleUpdated(oldTitle, newTitle);
+        emit TitleUpdated(newTitle);
     }
 
     /**
@@ -287,9 +294,8 @@ contract Offer {
             currentStatus == State.WAITING_BUYER,
             "Category can only be changed before a purchase"
         );
-        string memory oldCategory = category;
         category = newCategory;
-        emit ChangedCategory(oldCategory, newCategory);
+        emit ChangedCategory(newCategory);
     }
 
     /**
@@ -304,9 +310,8 @@ contract Offer {
             currentStatus == State.WAITING_BUYER,
             "Shipping country can only be changed before a purchase"
         );
-        bytes3 oldShipsFrom = shipsFrom;
         shipsFrom = newShipsFrom;
-        emit ChangedShipsFrom(oldShipsFrom, newShipsFrom);
+        emit ChangedShipsFrom(newShipsFrom);
     }
 
     /**
