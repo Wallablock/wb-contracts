@@ -1,0 +1,26 @@
+{
+  "name": "wb-contracts",
+  "version": "0.1.0",
+  "description": "Ethereum contracts for Wallablock",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test",
+    "build": "truffle compile",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wallablock/wb-contracts.git"
+  },
+  "author": "The Wallablock Team",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/wallablock/wb-contracts/issues"
+  },
+  "homepage": "https://github.com/wallablock/wb-contracts#readme",
+  "devDependencies": {
+    "truffle": "^5.1.19"
+  }
+}
