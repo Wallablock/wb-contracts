@@ -8,7 +8,7 @@
   "scripts": {
     "test": "truffle test",
     "build": "truffle compile",
-    "prepare": "npm run build"
+    "postinstall": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
     "url": "https://github.com/wallablock/wb-contracts/issues"
   },
   "homepage": "https://github.com/wallablock/wb-contracts#readme",
-  "devDependencies": {
+  "dependencies": {
     "truffle": "^5.1.19"
   }
 }
