@@ -116,27 +116,27 @@ contract Offer {
     );
 
     /// @notice The title of the offer has been updated
-    event TitleUpdated(string newTitle);
+    event TitleChanged(string newTitle);
+
+    /// @notice The files attached to the offer have been updated.
+    /// @dev Unlike other changes, the old CID is provided
+    ///      in case it is needed to e.g. unpin old CIDs.
+    event AttachedFilesChanged(string oldCID, string newCID);
+
+    /// @notice The advertised price of the offer has been changed.
+    event PriceChanged(uint256 newPrice);
+
+    /// @notice The category of the offer has been changed.
+    event CategoryChanged(string newCategory);
+
+    /// @notice This shipping country of the offer has been changed.
+    event ShipsFromChanged(bytes3 newShipsFrom);
 
     /// @notice A buyer has purchased this offer.
     event Bought(address indexed buyer);
 
     /// @notice The seller has rejected a buyer.
     event BuyerRejected(address oldBuyer);
-
-    /// @notice The files attached to the offer have been updated.
-    /// @dev Unlike other changes, the old CID is provided
-    ///      in case it is needed to e.g. unpin old CIDs.
-    event ChangedIPFSFiles(string oldCID, string newCID);
-
-    /// @notice The advertised price of the offer has been changed.
-    event ChangedPrice(uint256 newPrice);
-
-    /// @notice The category of the offer has been changed.
-    event ChangedCategory(string newCategory);
-
-    /// @notice This shipping country of the offer has been changed.
-    event ChangedShipsFrom(bytes3 newShipsFrom);
 
     /// @notice The offer has been completed successfully.
     event Completed();
@@ -227,11 +227,11 @@ contract Offer {
           the caller is resposible for the appropriate checks.
      @param newCID Content Identifier of the directory containing the updated files.
      */
-    function setIpfsCid(string memory newCID) public {
+    function setAttachedFiles(string memory newCID) public {
         require(msg.sender == seller, "Only sender can modify attached files");
         string memory oldCID = attachedFiles;
         attachedFiles = newCID;
-        emit ChangedIPFSFiles(oldCID, newCID);
+        emit AttachedFilesChanged(oldCID, newCID);
     }
 
     /**
@@ -261,7 +261,7 @@ contract Offer {
             return; // Avoid emmiting event
         }
         price = newPrice;
-        emit ChangedPrice(newPrice);
+        emit PriceChanged(newPrice);
     }
 
     /**
@@ -277,7 +277,7 @@ contract Offer {
         );
         require(bytes(newTitle).length > 0, "A title is required");
         title = newTitle;
-        emit TitleUpdated(newTitle);
+        emit TitleChanged(newTitle);
     }
 
     /**
@@ -295,7 +295,7 @@ contract Offer {
             "Category can only be changed before a purchase"
         );
         category = newCategory;
-        emit ChangedCategory(newCategory);
+        emit CategoryChanged(newCategory);
     }
 
     /**
@@ -311,7 +311,7 @@ contract Offer {
             "Shipping country can only be changed before a purchase"
         );
         shipsFrom = newShipsFrom;
-        emit ChangedShipsFrom(newShipsFrom);
+        emit ShipsFromChanged(newShipsFrom);
     }
 
     /**
