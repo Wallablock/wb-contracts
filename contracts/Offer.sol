@@ -121,7 +121,7 @@ contract Offer {
     /// @notice The files attached to the offer have been updated.
     /// @dev Unlike other changes, the old CID is provided
     ///      in case it is needed to e.g. unpin old CIDs.
-    event AttachedFilesChanged(string oldCID, string newCID);
+    event AttachedFilesChanged(string indexed newCID, string oldCID);
 
     /// @notice The advertised price of the offer has been changed.
     event PriceChanged(uint256 newPrice);
@@ -231,7 +231,7 @@ contract Offer {
         require(msg.sender == seller, "Only sender can modify attached files");
         string memory oldCID = attachedFiles;
         attachedFiles = newCID;
-        emit AttachedFilesChanged(oldCID, newCID);
+        emit AttachedFilesChanged(newCID, oldCID);
     }
 
     /**
