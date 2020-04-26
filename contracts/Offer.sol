@@ -52,6 +52,9 @@ contract Offer {
     uint64 public purchaseDate;
     uint64 public confirmationDate;
 
+    /// @notice The seller's public key. Needed for contactInfo encryption.
+    bytes public sellerKey;
+
     /// @notice The code of the country the offer is shipping from, or "XXX" if
     ///         this does not apply. The code is the ISO 3166-1 alpha-3 code
     ///         (e.g. ESP...).
@@ -93,7 +96,7 @@ contract Offer {
     string public attachedFiles;
 
     /// @notice The contact information of the buyer, encrypted with the public key
-    ///         of the seller.
+    ///         of the seller (`sellerKey`).
     /// @dev To decrypt it, you need the private key of the seller.
     ///      Beyond that, the format is unspecified.
     ///      Despite being private, anyone with access to the blockchain can read it,
@@ -158,6 +161,7 @@ contract Offer {
      @param newShipsFrom The origin shipping country for the offer. See: setShipsFrom()
      */
     constructor(
+        bytes memory sellerPublicKey,
         uint256 newPrice,
         string memory newTitle,
         string memory newCategory,
@@ -171,6 +175,7 @@ contract Offer {
         require(msg.value == deposit, "Invalid deposit");
         require(bytes(newTitle).length > 0, "A title is required");
         seller = msg.sender;
+        sellerKey = sellerPublicKey;
         price = newPrice;
         title = newTitle;
         category = newCategory;
