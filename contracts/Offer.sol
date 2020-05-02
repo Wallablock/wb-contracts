@@ -1,4 +1,4 @@
-pragma solidity >=0.4.21 <0.7.0;
+pragma solidity >= 0.5.0 < 0.7.0;
 
 /**
  @title An offer to exchange goods or services for Ethers.
@@ -161,6 +161,7 @@ contract Offer {
      @param newShipsFrom The origin shipping country for the offer. See: setShipsFrom()
      */
     constructor(
+        address payable newSeller,
         bytes memory sellerPublicKey,
         uint256 newPrice,
         string memory newTitle,
@@ -174,7 +175,7 @@ contract Offer {
         require(deposit >= newPrice, "Price too big");
         require(msg.value == deposit, "Invalid deposit");
         require(bytes(newTitle).length > 0, "A title is required");
-        seller = msg.sender;
+        seller = newSeller;
         sellerKey = sellerPublicKey;
         price = newPrice;
         title = newTitle;
