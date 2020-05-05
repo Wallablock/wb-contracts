@@ -168,7 +168,8 @@ contract Offer {
         uint256 newPrice,
         string memory newTitle,
         string memory newCategory,
-        bytes3 newShipsFrom
+        bytes3 newShipsFrom,
+        string memory newAttachedFiles
     ) public payable {
         assert(BUYER_DEPOSIT_MULTIPLIER > 0);
         assert(SELLER_DEPOSIT_MULTIPLIER > 0);
@@ -182,6 +183,7 @@ contract Offer {
         title = newTitle;
         category = newCategory;
         shipsFrom = newShipsFrom;
+        attachedFiles = newAttachedFiles;
         creationDate = uint64(now);
         currentStatus = State.WAITING_BUYER;
         emit Created(seller, newTitle, newPrice, newCategory, newShipsFrom);
