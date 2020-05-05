@@ -52,9 +52,6 @@ contract Offer {
     uint64 public purchaseDate;
     uint64 public confirmationDate;
 
-    /// @notice The seller's public key. Needed for contactInfo encryption.
-    bytes public sellerKey;
-
     /// @notice The code of the country the offer is shipping from, or "XXX" if
     ///         this does not apply. The code is the ISO 3166-1 alpha-3 code
     ///         (e.g. ESP...).
@@ -95,13 +92,20 @@ contract Offer {
      */
     string public attachedFiles;
 
-    /// @notice The contact information of the buyer, encrypted with the public key
-    ///         of the seller (`sellerKey`).
-    /// @dev To decrypt it, you need the private key of the seller.
-    ///      Beyond that, the format is unspecified.
-    ///      Despite being private, anyone with access to the blockchain can read it,
-    ///      that's why it must be encrypted. The visibility is just to make it less
-    ///      convenient.
+    /**
+     @notice The contact information of the buyer, encrypted with the public key
+             of the seller.
+             *NOTE:* Due to current limitations in available libraries, it is not
+             possible to encrypt and decrypt information with Ethereum key pairs.
+             This limitation is expected to be lifted soon, but until then,
+             information will be stored in plain text.
+     @dev To decrypt it, you need the private key of the seller.
+          Beyond that, the format is unspecified.
+          Despite being private, anyone with access to the blockchain can read it,
+          that's why it must be encrypted. The visibility is just to make it less
+          convenient.
+          See NOTE on notice
+     */
     bytes private contactInfo;
 
     /// @notice A mapping of the outstanding amounts due to the accounts.
@@ -161,8 +165,6 @@ contract Offer {
      @param newShipsFrom The origin shipping country for the offer. See: setShipsFrom()
      */
     constructor(
-        address payable newSeller,
-        bytes memory sellerPublicKey,
         uint256 newPrice,
         string memory newTitle,
         string memory newCategory,
@@ -175,8 +177,7 @@ contract Offer {
         require(deposit >= newPrice, "Price too big");
         require(msg.value == deposit, "Invalid deposit");
         require(bytes(newTitle).length > 0, "A title is required");
-        seller = newSeller;
-        sellerKey = sellerPublicKey;
+        seller = msg.sender;
         price = newPrice;
         title = newTitle;
         category = newCategory;
