@@ -1,5 +1,7 @@
 pragma solidity >= 0.5.0 < 0.7.0;
 
+import { OfferRegistry } from "./OfferRegistry.sol";
+
 /**
  @title An offer to exchange goods or services for Ethers.
  @author The Wallablock team
@@ -43,6 +45,7 @@ contract Offer {
         CANCELLED
     }
 
+    OfferRegistry public registry;
 
     /// @notice The current status of the contract.
     ///         This limits the operations available for this offer.
@@ -143,7 +146,7 @@ contract Offer {
     event Bought(address indexed buyer);
 
     /// @notice The seller has rejected a buyer.
-    event BuyerRejected(address oldBuyer);
+    event BuyerRejected();
 
     /// @notice The offer has been completed successfully.
     event Completed();
@@ -165,6 +168,7 @@ contract Offer {
      @param newShipsFrom The origin shipping country for the offer. See: setShipsFrom()
      */
     constructor(
+        OfferRegistry newRegistry,
         uint256 newPrice,
         string memory newTitle,
         string memory newCategory,
@@ -179,6 +183,7 @@ contract Offer {
         require(msg.value == deposit, "Invalid deposit");
         require(bytes(newTitle).length > 0, "A title is required");
         seller = msg.sender;
+        registry = newRegistry;
         price = newPrice;
         title = newTitle;
         category = newCategory;
@@ -187,6 +192,7 @@ contract Offer {
         creationDate = uint64(now);
         currentStatus = State.WAITING_BUYER;
         emit Created(seller, newTitle, newPrice, newCategory, newShipsFrom);
+        registry.notifyCreation(seller, title, price, category, shipsFrom, attachedFiles);
     }
 
     /**
@@ -231,19 +237,6 @@ contract Offer {
     }
 
     /**
-     @notice Change the attached files of the contract to point to the `newCID` directory.
-     @dev The function will not check the validity of the CID in any way;
-          the caller is resposible for the appropriate checks.
-     @param newCID Content Identifier of the directory containing the updated files.
-     */
-    function setAttachedFiles(string memory newCID) public {
-        require(msg.sender == seller, "Only sender can modify attached files");
-        string memory oldCID = attachedFiles;
-        attachedFiles = newCID;
-        emit AttachedFilesChanged(newCID, oldCID);
-    }
-
-    /**
      @notice Changes the price of the offer to `newPrice`. This is only possible while the
              contract is awaiting a buyer. If the new price is greater than the current price
              (`price`), the difference in the deposit must be paid when calling this function.
@@ -271,6 +264,7 @@ contract Offer {
         }
         price = newPrice;
         emit PriceChanged(newPrice);
+        registry.notifyPriceChange(newPrice);
     }
 
     /**
@@ -287,6 +281,7 @@ contract Offer {
         require(bytes(newTitle).length > 0, "A title is required");
         title = newTitle;
         emit TitleChanged(newTitle);
+        registry.notifyTitleChange(newTitle);
     }
 
     /**
@@ -305,6 +300,7 @@ contract Offer {
         );
         category = newCategory;
         emit CategoryChanged(newCategory);
+        registry.notifyCategoryChange(newCategory);
     }
 
     /**
@@ -321,6 +317,21 @@ contract Offer {
         );
         shipsFrom = newShipsFrom;
         emit ShipsFromChanged(newShipsFrom);
+        registry.notifyShipsFromChange(newShipsFrom);
+    }
+
+    /**
+     @notice Change the attached files of the contract to point to the `newCID` directory.
+     @dev The function will not check the validity of the CID in any way;
+          the caller is resposible for the appropriate checks.
+     @param newCID Content Identifier of the directory containing the updated files.
+     */
+    function setAttachedFiles(string memory newCID) public {
+        require(msg.sender == seller, "Only sender can modify attached files");
+        string memory oldCID = attachedFiles;
+        attachedFiles = newCID;
+        emit AttachedFilesChanged(newCID, oldCID);
+        registry.notifyAttachedFilesChange(newCID, oldCID);
     }
 
     /**
@@ -340,6 +351,7 @@ contract Offer {
         purchaseDate = uint64(now);
         currentStatus = State.PENDING_CONFIRMATION;
         emit Bought(buyer);
+        registry.notifyPurchase(buyer);
     }
 
     /**
@@ -355,6 +367,7 @@ contract Offer {
         confirmationDate = uint64(now);
         currentStatus = State.COMPLETED;
         emit Completed();
+        registry.notifyCompletion();
     }
 
     /**
@@ -368,12 +381,12 @@ contract Offer {
         require(currentStatus == State.PENDING_CONFIRMATION, "Can't reject buyer in current status");
         require(msg.sender == seller, "Only seller can reject buyer");
         payTo(buyer, buyerDepositWithPayment());
-        address oldBuyer = buyer;
         delete buyer;
         delete contactInfo;
         delete purchaseDate;
         currentStatus = State.WAITING_BUYER;
-        emit BuyerRejected(oldBuyer);
+        emit BuyerRejected();
+        registry.notifyBuyerRejection();
     }
 
     /**
@@ -394,6 +407,7 @@ contract Offer {
         }
         currentStatus = State.CANCELLED;
         emit Cancelled();
+        registry.notifyCancellation();
     }
 
     /**
