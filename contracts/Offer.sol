@@ -248,18 +248,17 @@ contract Offer {
         require(currentStatus == State.WAITING_BUYER, "Can't change price in current status");
         require(msg.sender == seller, "Only seller can change price");
         require(newPrice >= MIN_PRICE, "Price too small");
-        uint256 newDeposit = 2 * newPrice;
+        uint256 newDeposit = SELLER_DEPOSIT_MULTIPLIER * newPrice;
         require(newDeposit >= newPrice, "Price too big");
-        uint256 oldPrice = price;
-        uint256 oldDeposit = 2 * oldPrice;
-        assert(newDeposit != oldDeposit);
+        uint256 oldDeposit = sellerDeposit();
         if (newDeposit > oldDeposit) {
             require(msg.value == newDeposit - oldDeposit, "Invalid deposit");
         } else if (newDeposit < oldDeposit) {
             require(msg.value == 0, "Invalid deposit");
             payTo(seller, oldDeposit - newDeposit);
         } else {
-            assert(newPrice == oldPrice);
+            assert(newPrice == price);
+            require(msg.value == 0, "Invalid deposit");
             return; // Avoid emmiting event
         }
         price = newPrice;
@@ -426,6 +425,14 @@ contract Offer {
      */
     function sellerDeposit() public view returns (uint256) {
         return price * SELLER_DEPOSIT_MULTIPLIER;
+    }
+
+    function newSellerDeposit(uint256 newPrice) public pure returns (uint256) {
+        return newPrice * SELLER_DEPOSIT_MULTIPLIER;
+    }
+
+    function depositChangeForNewPrice(uint256 newPrice) public view returns (uint256) {
+        return newSellerDeposit(newPrice) - sellerDeposit();
     }
 
     /**
