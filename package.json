@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/wallablock/wb-contracts#readme",
   "dependencies": {
-    "truffle": "^5.1.19"
+    "truffle": "^5.8.4"
   }
 }
